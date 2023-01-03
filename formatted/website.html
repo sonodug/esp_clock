@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Alarm clock</title>
+</head>
+
+<body style='background-color: #100908;'>
+    <span style='color: #e3f1f2;'>
+        <h1>Alarm clock </h1>
+        <form id='form'>
+            day: <input type='number' name='day' id='days' size='5'><br><br>
+            hours: <input type='number' name='hours' id='hours' size='5'><br><br>
+            minutes: <input type='number' name='minutes' id='minutes' size='5'><br><br>
+            seconds: <input type='number' name='seconds' id='seconds' size='5'><br><br>
+            <button type='submit' id='BTN_PING_ESP32'>Set alarm time</button>
+        </form><br>
+        <p>Current temperature is: <span id='temperature'>-</span></p>
+        <p>Current humidity is: <span id='humidity'>-</span></p>
+    </span>
+</body>
+
+<script src="/formatted/script.js"> </script>
+
+</html>
