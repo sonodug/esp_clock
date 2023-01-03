@@ -13,8 +13,10 @@
             hours: <input type='number' name='hours' id='hours' size='5'><br><br>
             minutes: <input type='number' name='minutes' id='minutes' size='5'><br><br>
             seconds: <input type='number' name='seconds' id='seconds' size='5'><br><br>
-            <button type='submit' id='BTN_PING_ESP32'>Set alarm time</button>
         </form><br>
+        <button onclick='button_set()'>Set alarm time</button><br><br>
+        <p>Current time is: <span id='time'>-</span></p>
+        <button onclick='syncTimeEsp()'>Sync time with alarm clock</button>
         <p>Current temperature is: <span id='temperature'>-</span></p>
         <p>Current humidity is: <span id='humidity'>-</span></p>
     </span>
