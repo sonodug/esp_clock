@@ -1,10 +1,11 @@
+// Use only core 1 for demo purposes
 #if CONFIG_FREERTOS_UNICORE
   static const BaseType_t app_cpu = 0;
 #else
   static const BaseType_t app_cpu = 1;
 #endif
 
-//Libraries
+// LIBRARIES
 #include <LiquidCrystal_I2C.h>
 #include <iarduino_RTC.h>
 #include <DHT.h>
@@ -13,7 +14,7 @@
 #include <WebSocketsServer.h>
 #include <ArduinoJson.h>  
 
-//PINS
+// PINS
 #define BUTTON_SWITCH 16
 #define BUTTON_SENS 4
 #define RGB_GREEN 32
@@ -24,7 +25,7 @@
 #define DAT_PIN 26
 #define DISABLE_TIME 2000
 
-//TASKS
+// TASKS
 void buttonsTask(void *pvParameters);
 void lcdClockTask(void *pvParameters);
 void lcdSensorTask(void *pvParameters);
@@ -32,19 +33,29 @@ void listenSockets(void *pvParameters);
 void checkTime(void *pvParameters);
 void syncTime(void *pvParameters);
 
-//OBJECTS DECLARATION
+// OBJECTS DECLARATION
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 DHT dht(DHT11_PIN, DHT11);
 iarduino_RTC rtc(RTC_DS1302, RST_PIN, CLK_PIN, DAT_PIN);
 
+// SEMAPHORES
 SemaphoreHandle_t xBtnSemaphore;
 SemaphoreHandle_t xAlarmTimeSemaphore;
 SemaphoreHandle_t xTimeSyncSemaphore;
 
+// TASK HANDLERS
 TaskHandle_t ClockTaskHandle = NULL;
 TaskHandle_t SensTaskHandle = NULL;
 
-//ALARM TIME PARAMS
+// TIMERS
+TimerHandle_t syncTimer = NULL;
+
+// TIMER'S CALLBACKS
+void syncTimerCallback(TimerHandle_t xTimer) {  // Called when one of the timers expires
+  Serial.println("Sync Timer expired");
+}
+
+// ALARM TIME PARAMS
 uint32_t day = 0;
 uint32_t hours = 0;
 uint32_t minutes = 0;
@@ -63,23 +74,27 @@ int syncMinutes;
 int syncSeconds;
 int syncDayOfWeek;
 
-//WEB-SERVER SETTING
+// WEB-SERVER SETTINGS
 const char* ssid = "esp32";
 const char* password = "123456789";
 
-String website = "<!DOCTYPE html> <html> <head> <title>Alarm clock</title> </head> <body style='background-color: #100908;'> <span style='color: #e3f1f2;'> <h1>Alarm clock </h1> <form id='form'> day: <input type='number' name='day' id='days' size='5'><br><br> hours: <input type='number' name='hours' id='hours' size='5'><br><br> minutes: <input type='number' name='minutes' id='minutes' size='5'><br><br> seconds: <input type='number' name='seconds' id='seconds' size='5'><br><br> </form><br> <button onclick='button_set()'>Set alarm time</button><br><br> <p>Current time is: <span id='time'>-</span></p> <button onclick='syncTimeEsp()'>Sync time with alarm clock</button> <p>Current temperature is: <span id='temperature'>-</span></p> <p>Current humidity is: <span id='humidity'>-</span></p> </span> </body> <script> var Socket; function init() { Socket = new WebSocket('ws://' + window.location.hostname + ':81/'); Socket.onmessage = function (event) { processCommand(event); }; } function button_set() { var dayValue = document.getElementById('days').value; var hoursValue = document.getElementById('hours').value; var minutesValue = document.getElementById('minutes').value; var secondsValue = document.getElementById('seconds').value; var msg = { days: '', hours: '', minutes: '', seconds: '' }; msg.days = dayValue; msg.hours = hoursValue; msg.minutes = minutesValue; msg.seconds = secondsValue; Socket.send(JSON.stringify(msg)); } function processCommand(event) { var obj = JSON.parse(event.data); document.getElementById('temperature').innerHTML = obj.temperature; document.getElementById('humidity').innerHTML = obj.humidity; console.log(obj.temperature); console.log(obj.humidity); } function syncTimeEsp() { now = new Date(); y = now.getFullYear(); m = now.getMonth() + 1; d = now.getDate(); h = now.getHours(); min = now.getMinutes(); s = now.getSeconds(); dw = now.getDay(); msg = { year: '', month: '', day: '', hour: '', minutes: '', seconds: '', dayOfWeek: '' }; msg.year = y; msg.month = m; msg.day = d; msg.hour = h; msg.minutes = min; msg.seconds = s; msg.dayOfWeek = dw; Socket.send(JSON.stringify(msg)); } function outputTime() { now = new Date(); d = now.getDate(); m = now.getMonth() + 1; y = now.getFullYear(); h = now.getHours(); min = now.getMinutes(); s = now.getSeconds(); if (d <= 9 && m > 9) { document.getElementById('time').innerHTML = '0' + d + '.' + m + '.' + y + ' | ' + h + ':' + min + ':' + s; } else if (d <= 9 && m <= 9) { document.getElementById('time').innerHTML = '0' + d + '.' + '0' + m + '.' + y + ' | ' + h + ':' + min + ':' + s; } else { document.getElementById('time').innerHTML = d + '.' + m + '.' + y + ' | ' + h + ':' + min + ':' + s; } setTimeout(outputTime, 1000); } outputTime(); window.onload = function (event) { init(); } </script> </html>";
+// HTML & JS code
+String website = "<!DOCTYPE html> <html> <head> <title>Alarm clock</title> </head> <body style='background-color: #100908;'> <span style='color: #e3f1f2;'> <h1>Alarm clock </h1> <form id='form'> day: <input type='number' name='day' id='days' size='5'><br><br> hours: <input type='number' name='hours' id='hours' size='5'><br><br> minutes: <input type='number' name='minutes' id='minutes' size='5'><br><br> seconds: <input type='number' name='seconds' id='seconds' size='5'><br><br> </form><br> <button onclick='button_set()'>Set alarm time</button><br><br> <p>Current time is: <span id='time'>-</span></p> <button onclick='syncTimeEsp()'>Sync time with alarm clock</button> <p>Current temperature is: <span id='temperature'>-</span></p> <p>Current humidity is: <span id='humidity'>-</span></p> </span> </body> <script> var Socket; function init() { Socket = new WebSocket('ws://' + window.location.hostname + ':81/'); Socket.onmessage = function (event) { processCommand(event); }; } function button_set() { var dayValue = document.getElementById('days').value; var hoursValue = document.getElementById('hours').value; var minutesValue = document.getElementById('minutes').value; var secondsValue = document.getElementById('seconds').value; var msg = { days: '', hours: '', minutes: '', seconds: '' }; msg.days = dayValue; msg.hours = hoursValue; msg.minutes = minutesValue; msg.seconds = secondsValue; Socket.send(JSON.stringify(msg)); } function processCommand(event) { var obj = JSON.parse(event.data); document.getElementById('temperature').innerHTML = obj.temperature; document.getElementById('humidity').innerHTML = obj.humidity; console.log(obj.temperature); console.log(obj.humidity); } function syncTimeEsp() { now = new Date(); y = now.getFullYear(); m = now.getMonth() + 1; d = now.getDate(); h = now.getHours(); min = now.getMinutes(); s = now.getSeconds(); dw = now.getDay(); msg = { year: '', month: '', day: '', hour: '', minutes: '', seconds: '', dayOfWeek: '' }; msg.year = y; msg.month = m; msg.day = d; msg.hour = h; msg.minutes = min; msg.seconds = s; msg.dayOfWeek = dw; Socket.send(JSON.stringify(msg)); } function outputTime() { now = new Date(); d = now.getDate(); m = now.getMonth() + 1; y = now.getFullYear(); h = now.getHours(); min = now.getMinutes(); s = now.getSeconds(); if (d <= 9 && m > 9) { document.getElementById('time').innerHTML = '0' + d + '.' + m + '.' + y + ' | ' + h + ':' + min + ':' + s; } else if (d <= 9 && m <= 9) { document.getElementById('time').innerHTML = '0' + d + '.' + '0' + m + '.' + y + ' | ' + h + ':' + min + ':' + s; } else { document.getElementById('time').innerHTML = d + '.' + m + '.' + y + ' | ' + h + ':' + min + ':' + s; } setTimeout(outputTime, 1000); } outputTime(); window.onload = function (event) { init(); } window.onload = function (event) { syncTimeEsp(); } </script> </html>";
 
-int interval = 1000;
+int interval = 1000; // Interval for recording data from sensors
 unsigned long previousMillis = 0;
 
+// Port 80 for Web-server, 81 for Web-socket
 WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
 
+// Button interrupt
 void IRAM_ATTR ISR_btn()
 {
   xSemaphoreGiveFromISR(xBtnSemaphore, NULL);
 }
 
+// Task for handle button clicks
 void buttonsTask(void *pvParameter)
 {
   bool isISR = true;
@@ -177,6 +192,7 @@ void buttonsTask(void *pvParameter)
   }
 }
 
+// Task for listen sockets
 void listenSockets(void *pvParameters)
 {
   while(true)
@@ -200,10 +216,11 @@ void listenSockets(void *pvParameters)
       
       previousMillis = now;
     }
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(100);
   }
 }
 
+// Task to validate incoming alarm data from the client and assign it to global variables for verification by the buzzer
 void checkTime(void *pvParameters)
 {
   while(true)
@@ -230,9 +247,11 @@ void checkTime(void *pvParameters)
         Serial.println("Incorrect input, try again.");
       }
     }
+    vTaskDelay(100);
   }
 }
 
+// Task for synchronize time with rtc
 void syncTime(void *pvParameters)
 {
   while(true)
@@ -240,11 +259,13 @@ void syncTime(void *pvParameters)
     if (xSemaphoreTake(xTimeSyncSemaphore, portMAX_DELAY))
     {
       rtc.settime(syncSeconds, syncMinutes, syncHours, syncDay, syncMonth, syncYear, syncDayOfWeek);
-      Serial.print("Sync time data processed.");
+      Serial.println("Sync time data processed.");
     }
+    vTaskDelay(100);
   }
 }
 
+// Task for checking buzzer time
 void buzzerTask(void *pvParameters)
 {
   while(true)
@@ -259,6 +280,7 @@ void buzzerTask(void *pvParameters)
   } 
 }
 
+// Task of displaying the current time
 void lcdClockTask(void *pvParameters)
 {
   while(true)
@@ -271,6 +293,7 @@ void lcdClockTask(void *pvParameters)
   } 
 }
 
+// Task of displaying the current sensors
 void lcdSensorTask(void *pvParameters)
 {
   while(true)
@@ -289,6 +312,7 @@ void lcdSensorTask(void *pvParameters)
   }
 }
 
+// Event that is executed when Socket.send()
 void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length) 
 {
   switch (type) {
@@ -326,7 +350,7 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
           syncHours = doc["hour"];
           syncMinutes = doc["minutes"];
           syncSeconds = doc["seconds"];
-          syncSeconds = doc["dayOfWeek"];
+          syncDayOfWeek = doc["dayOfWeek"];
           Serial.println("Received time sync params.");
           xSemaphoreGive(xTimeSyncSemaphore);
         }
@@ -336,10 +360,12 @@ void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
   }
 }
 
+// Initialization function
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(115200); // Initiates a serial connection and sets the data transfer rate in bits/s (baud)
 
+  // Sets Web-server to access point mode
   Serial.print("Setting up Access Point ... ");
 
   Serial.print("Starting Access Point ... ");
@@ -349,7 +375,7 @@ void setup()
   Serial.println(WiFi.softAPIP());
   
   server.on("/", []() {
-    server.send(200, "text/html", website);
+    server.send(200, "text/html", website); // Send html code
   });
 
   server.begin();
@@ -365,13 +391,13 @@ void setup()
   
   analogWrite(RGB_GREEN, 255);
 
-  lcd.init();                    
-  lcd.backlight();
+  lcd.init();                         // Initiating the LCD1602 module   
+  lcd.backlight();                    // Turn on the backlight
   
-  rtc.begin();
-  rtc.settime(0, 0, 3, 20, 12, 22, 2);
+  rtc.begin();                        // Initiating the RTC module
+  rtc.settime(0, 0, 0, 0, 0, 0, 0);   // Setting the time: seconds, minutes, hours, month, day, year, day of week
 
-  dht.begin();
+  dht.begin();                        // Initiating the DHT11 module
 
   Serial.print("Setting AP (Access Point)…");
 
@@ -385,7 +411,31 @@ void setup()
   Serial.println(IP);
   server.begin();
 
-  xTaskCreate(listenSockets, "WI-FI", 8000, NULL, 3, NULL);
+  syncTimer = xTimerCreate(                // Timer initializing
+              "Sync-reload timer",         // Name of timer
+              1000 / portTICK_PERIOD_MS,   // Period of timer (in ticks)
+              pdTRUE,                      // Auto-reload
+              (void *)1,                   // Timer ID
+              syncTimerCallback);          // Callback function
+
+  if (syncTimer == NULL) {                                 // Check to make sure timers were created
+    Serial.println("Could not create one of the timers");
+  }
+  else {
+    vTaskDelay(1000 / portTICK_PERIOD_MS);                 // Wait and then print out a message
+    Serial.println("Starting timer...");
+
+    xTimerStart(syncTimer, portMAX_DELAY);                 // Start timer (max block time if command queue if full)
+  }
+
+  xTaskCreate(            // xTaskCreate() in vanilla FreeRTOS, one more parameter if we would use xTaskCreatePinnedToCore()
+      listenSockets,      // Function to be called
+      "WI-FI",            // Name of task
+      8000,               // Stack size (bytes in ESP32, words in FreeRTOS)
+      NULL,               // Parameter to pass to function
+      3,                  // Task priority (0 to configMAX_PRIORITIES - 1)
+      NULL);              // Task handle
+  
   xTaskCreate(buzzerTask, "Buzzer", 8000, NULL, 1, NULL);
   xTaskCreate(checkTime, "AlarmTime", 4000, NULL, 2, NULL);
   xTaskCreate(syncTime, "SyncTime", 4000, NULL, 2, NULL);
@@ -395,6 +445,7 @@ void setup()
   vTaskSuspend(SensTaskHandle);
 }
 
+// Super-cycle function (not used)
 void loop() {
   
 }

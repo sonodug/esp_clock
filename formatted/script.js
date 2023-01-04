@@ -1,6 +1,4 @@
 var Socket;
-const form = document.getElementById('form');
-form.addEventListener('submit', button_set);
 function init() {
     Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
     Socket.onmessage = function (event) {
@@ -35,7 +33,7 @@ function syncTimeEsp() {
     min = now.getMinutes();
     s = now.getSeconds();
     dw = now.getDay();
-    var msg = { year: '', month: '', day: '', hour: '', minutes: '', seconds: '', dayOfWeek: '' };
+    msg = { year: '', month: '', day: '', hour: '', minutes: '', seconds: '', dayOfWeek: '' };
     msg.year = y;
     msg.month = m;
     msg.day = d;
@@ -44,40 +42,43 @@ function syncTimeEsp() {
     msg.seconds = s;
     msg.dayOfWeek = dw;
     Socket.send(JSON.stringify(msg));
-
-    setTimeout(syncTimeEsp, 1000);
 }
 function outputTime() {
-    now = new Date();
-    d = now.getDate();
-    m = now.getMonth() + 1;
-    y = now.getFullYear();
-    h = now.getHours();
-    min = now.getMinutes();
-    s = now.getSeconds();
-
-    if (d <= 9 && m > 9) {
-        document.getElementById('time').innerHTML =
-            '0' + d + '.' + m + '.' + y + ' | '
-            + h + ':' + min + ':' + s;
-    }
-    else if (d <= 9 && m <= 9) {
-        document.getElementById('time').innerHTML =
-            '0' + d + '.' + '0' + m + '.' + y + ' | '
-            + h + ':' + min + ':' + s;
-    }
-    else {
-        document.getElementById('time').innerHTML =
-            d + '.' + m + '.' + y + ' | '
-            + h + ':' + min + ':' + s;
-    }
-
-    setTimeout(outputTime, 1000);
+  now = new Date();
+  d = now.getDate();
+  m = now.getMonth() + 1;
+  y = now.getFullYear();
+  h = now.getHours();
+  min = now.getMinutes();
+  s = now.getSeconds();
+  
+  if (d <= 9 && m > 9)
+  {
+    document.getElementById('time').innerHTML =
+    '0' + d + '.' + m + '.' + y + ' | ' 
+    + h + ':' + min + ':' + s; 
+  }
+  else if (d <= 9 && m <= 9)
+  {
+    document.getElementById('time').innerHTML =
+    '0' + d + '.' + '0' + m + '.' + y + ' | ' 
+    + h + ':' + min + ':' + s; 
+  }
+  else
+  {
+    document.getElementById('time').innerHTML =
+    d + '.' + m + '.' + y + ' | ' 
+    + h + ':' + min + ':' + s; 
+  }
+  setTimeout(outputTime, 1000);
 }
 
 outputTime();
-syncTimeEsp();
 
 window.onload = function (event) {
     init();
+}
+
+window.onload = function (event) {
+  syncTimeEsp();
 }
